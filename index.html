@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href='bower_components/leaflet/dist/leaflet.css' rel='stylesheet' />
+    <style type="text/css">
+        #map {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script type="text/javascript" src='bower_components/leaflet/dist/leaflet.js'></script>
+<script type="text/javascript" src="bower_components/L.TileLayer.Kartverket/dist/L.TileLayer.Kartverket.min.js"></script>
+<script type="text/javascript" src="bower_components/underscore/underscore-min.js"></script>
+<script type="text/javascript" src="bower_components/jquery/dist/jquery.min.js"></script>
+<script type="text/javascript" src="bower_components/KNreiseAPI/dist/KNreiseAPI.min.js"></script>
+<script type="text/javascript" src="bower_components/turf/turf.min.js"></script>
+
+<script type="text/javascript">
+
+    L.latLngBounds.fromBBoxString = function (bbox) {
+        bbox = KR.Util.splitBbox(bbox);
+        return new L.LatLngBounds(
+            new L.LatLng(bbox[1], bbox[0]),
+            new L.LatLng(bbox[3], bbox[2])
+        );
+    };
+
+    function getSteps(length, steps) {
+        var stepLength = length / steps;
+        return _.map(_.range(0, steps + 1), function (step) {
+          return stepLength * step;
+        });
+    }
+
+    function initScroll(map, line) {
+        var length = turf.lineDistance(line.feature, 'kilometers');
+        var steps = getSteps(length, 100);
+        var layer = L.geoJson().addTo(map);
+        var index = 0;
+        function zoomToIndex(index) {
+            var step = steps[index];
+            if (step !== undefined) {
+                var along = turf.along(line.feature, step, 'kilometers');
+                layer.clearLayers().addData(along);
+                map.panTo(layer.getLayers()[0].getLatLng());
+            }
+        }
+        zoomToIndex(index);
+
+        document.onkeydown = function (e) {
+            e = e || window.event;
+            var key = e.which || e.keyCode
+            if (key === 38) {
+                if (index > 0) {
+                    index--;
+                    zoomToIndex(index);
+                }
+            }
+            if (key === 40) {
+                if (index < steps.length - 1) {
+                    index++
+                    zoomToIndex(index);
+                }
+            }
+        }
+    }
+
+    (function () {
+        'use strict';
+
+        var map = L.map('map', {
+            dragging: false,
+            touchZoom: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            zoomControl: false
+        });
+        L.tileLayer.kartverket('topo2graatone').addTo(map);
+
+        var url = 'https://gist.githubusercontent.com/anonymous/5a83eafe1e5cd369f6c9/raw/a58b4dfdd9d4a8772745009cb789baa187ef6202/map.geojson';
+        KR.Util.sendRequest(url, null, function (geoJson) {
+            var layer = L.geoJson(JSON.parse(geoJson)).addTo(map);
+
+            var line = layer.getLayers()[0]
+            var start = line.getLatLngs()[0];
+            map.setView(start, 15);
+            initScroll(map, line);
+        });
+
+    }());
+</script>
+
+</body>
+</html>
