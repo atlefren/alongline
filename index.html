@@ -89,14 +89,42 @@
         });
         L.tileLayer.kartverket('topo2graatone').addTo(map);
 
+        var api = new KR.API();
+
+        var dataset = {
+            api: 'norvegiana',
+            dataset: 'DiMu'
+        };
+
         var url = 'https://gist.githubusercontent.com/anonymous/5a83eafe1e5cd369f6c9/raw/a58b4dfdd9d4a8772745009cb789baa187ef6202/map.geojson';
         KR.Util.sendRequest(url, null, function (geoJson) {
             var layer = L.geoJson(JSON.parse(geoJson)).addTo(map);
-
             var line = layer.getLayers()[0]
             var start = line.getLatLngs()[0];
-            map.setView(start, 15);
-            initScroll(map, line);
+
+
+            //api.getBbox(dataset, layer.getBounds().toBBoxString(), function (features) {
+            KR.Util.sendRequest('test.geojson', null, function (features) {
+                var points = JSON.parse(features);
+                var f = L.geoJson().addTo(map);
+                map.on('moveend', function () {
+                    var bounds = map.getBounds();
+                    var polygon = turf.featurecollection([turf.polygon([[
+                     [bounds.getWest(), bounds.getSouth()],
+                     [bounds.getWest(), bounds.getNorth()],
+                     [bounds.getEast(), bounds.getNorth()],
+                     [bounds.getEast(), bounds.getSouth()],
+                     [bounds.getWest(), bounds.getSouth()]
+                    ]])]);
+
+                    f.clearLayers().addData(turf.within(points, polygon));
+                });
+
+
+                //.addTo(map);
+                map.setView(start, 15);
+                initScroll(map, line);
+            }, null, {allPages: true});
         });
 
     }());
